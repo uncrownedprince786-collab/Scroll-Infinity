@@ -1,69 +1,163 @@
-import Image from "next/image";
+import Link from "next/link";
+import { Container } from "@/components/layout/Container";
+import { SearchField } from "@/components/ui/SearchField";
+import { Stat } from "@/components/ui/Stat";
+import { EntityCard } from "@/components/ui/EntityCard";
+import { TopicCard } from "@/components/ui/TopicCard";
+import { ChangeRow } from "@/components/ui/ChangeRow";
+import { Reveal } from "@/components/ui/Reveal";
+import { ButtonLink } from "@/components/ui/Button";
+import { JsonLd } from "@/components/JsonLd";
+import { organizationJsonLd, websiteJsonLd } from "@/lib/seo";
+import { formatNumber, relativeTime } from "@/lib/format";
+import {
+  getRecentChanges,
+  getRecentlyUpdated,
+  getStats,
+  listTopics,
+} from "@/lib/repo";
 
-export default function Home() {
+export const revalidate = 1800;
+
+export default async function HomePage() {
+  const [stats, topics, recent, changes] = await Promise.all([
+    getStats(),
+    listTopics(),
+    getRecentlyUpdated(6),
+    getRecentChanges(6),
+  ]);
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
+    <>
+      <JsonLd data={websiteJsonLd()} />
+      <JsonLd data={organizationJsonLd()} />
+
+      {/* Hero */}
+      <Container as="section" className="hero">
+        <div className="hero__inner">
+          <p className="eyebrow">A living universe of information</p>
+          <h1 className="hero__title">
+            Explore what we know — and how it changes.
           </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+          <p className="hero__lede">
+            Scroll Infinity organizes public knowledge into clear, source-backed
+            pages: the key facts, where they come from, and how they move over
+            time.
+          </p>
+          <div className="hero__search">
+            <SearchField
+              size="lg"
+              label="Search Scroll Infinity"
+              placeholder="Search entities and topics…"
+            />
+          </div>
+          <p className="hero__hint">
+            Start with a <Link href="/topics">topic</Link> or see{" "}
+            <Link href="/latest">what changed recently</Link>.
           </p>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+      </Container>
+
+      {/* Live summary */}
+      {stats.entities > 0 && (
+        <Container as="section" className="section section--tight">
+          <Reveal>
+            <div className="stat-row">
+              <Stat value={formatNumber(stats.entities)} label="Entities" />
+              <Stat
+                value={formatNumber(stats.verifiedFacts)}
+                label="Sourced facts"
+              />
+              <Stat value={formatNumber(stats.topics)} label="Topics" />
+              <Stat
+                value={formatNumber(stats.observations)}
+                label="Observations"
+                desc={
+                  stats.lastUpdatedAt
+                    ? `Updated ${relativeTime(stats.lastUpdatedAt)}`
+                    : undefined
+                }
+              />
+            </div>
+          </Reveal>
+        </Container>
+      )}
+
+      {/* Topics */}
+      {topics.length > 0 && (
+        <Container as="section" className="section">
+          <Reveal>
+            <div className="section-head">
+              <h2 className="section-head__title">Explore by topic</h2>
+              <Link href="/topics" className="section-head__link">
+                All topics →
+              </Link>
+            </div>
+            <div className="card-grid card-grid--topics">
+              {topics.map((topic) => (
+                <TopicCard key={topic.slug} topic={topic} />
+              ))}
+            </div>
+          </Reveal>
+        </Container>
+      )}
+
+      {/* Recently updated */}
+      {recent.length > 0 && (
+        <Container as="section" className="section">
+          <Reveal>
+            <div className="section-head">
+              <h2 className="section-head__title">Recently updated</h2>
+              <Link href="/latest" className="section-head__link">
+                See latest →
+              </Link>
+            </div>
+            <div className="card-grid">
+              {recent.map((entity) => (
+                <EntityCard key={entity.slug} entity={entity} />
+              ))}
+            </div>
+          </Reveal>
+        </Container>
+      )}
+
+      {/* Recent changes */}
+      {changes.length > 0 && (
+        <Container as="section" className="section">
+          <Reveal>
+            <div className="section-head">
+              <h2 className="section-head__title">Changed recently</h2>
+              <Link href="/latest" className="section-head__link">
+                Full change log →
+              </Link>
+            </div>
+            <div className="change-list">
+              {changes.map((change, i) => (
+                <ChangeRow key={`${change.entitySlug}-${i}`} change={change} />
+              ))}
+            </div>
+          </Reveal>
+        </Container>
+      )}
+
+      {/* CTA */}
+      <Container as="section" className="section">
+        <Reveal>
+          <div className="cta">
+            <h2 className="cta__title">Keep exploring</h2>
+            <p className="cta__lede">
+              Every page links onward — to related entities, topics, and the
+              sources behind each fact.
+            </p>
+            <div className="cta__actions">
+              <ButtonLink href="/topics">Browse topics</ButtonLink>
+              <ButtonLink href="/search" variant="ghost">
+                Search everything
+              </ButtonLink>
+            </div>
+          </div>
+        </Reveal>
+      </Container>
+    </>
   );
 }

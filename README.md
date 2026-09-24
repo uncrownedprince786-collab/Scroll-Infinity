@@ -1,36 +1,68 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Scroll Infinity
 
-## Getting Started
+A continuously updated, source-backed knowledge platform. Explore entities and
+topics, see the key facts with provenance and freshness, and track how they
+change over time.
 
-First, run the development server:
+> **Not** a content farm, a generic AI site, or a keyword machine. The goal is
+> useful, searchable coverage that compounds in value. See [`brain.md`](./brain.md)
+> for the governing philosophy and [`ARCHITECTURE.md`](./ARCHITECTURE.md) for the
+> design.
+
+## Stack
+
+Next.js 16 (App Router, server-rendered) · React 19 · TypeScript · Tailwind
+CSS v4 · Drizzle ORM · Neon PostgreSQL · Vercel. Data from **Wikipedia** and
+**Wikidata** via a single SSRF-safe fetch layer.
+
+## Quickstart
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+# 1. Install
+npm install
+
+# 2. Configure environment
+cp .env.example .env.local     # then fill in DATABASE_URL (Neon Postgres)
+
+# 3. Create the database schema
+npm run db:migrate
+
+# 4. Ingest the seed dataset (Wikipedia + Wikidata)
+npm run ingest
+
+# 5. Run
+npm run dev                    # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Scripts
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+| Script | Purpose |
+|---|---|
+| `npm run dev` | Local dev server |
+| `npm run build` / `start` | Production build / serve |
+| `npm run typecheck` | `tsc --noEmit` |
+| `npm run lint` | ESLint |
+| `npm run test` | Vitest (parsers, normalization, quality gate) |
+| `npm run db:generate` | Generate SQL migration from the Drizzle schema |
+| `npm run db:migrate` | Apply migrations |
+| `npm run ingest` | Seed topics/sources and ingest entities |
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Project structure
 
-## Learn More
+See [`ARCHITECTURE.md`](./ARCHITECTURE.md). In short: `src/app` (routes),
+`src/components` (brand, layout, ui), `src/db` (schema + client),
+`src/lib` (config, types, sources, ingest, repo, seo), `scripts` (ingest),
+`drizzle` (migrations).
 
-To learn more about Next.js, take a look at the following resources:
+## Data & attribution
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Content is derived from [Wikipedia](https://en.wikipedia.org) (CC BY-SA) and
+[Wikidata](https://www.wikidata.org) (CC0). Every fact carries source
+provenance and a retrieval timestamp; historical observations are preserved
+rather than overwritten. We never fabricate data.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Environment
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+`DATABASE_URL` and `NEXT_PUBLIC_SITE_URL` are required; see `.env.example`.
+Secrets live only in `.env.local` (git-ignored) and in the host's encrypted
+environment — never committed.
