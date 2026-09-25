@@ -11,18 +11,14 @@ import { ingestAll } from "@/lib/ingest/pipeline";
 import { logEvent } from "@/lib/ingest/writes";
 
 async function main(): Promise<void> {
-  const { summaries, topics, relationships } = await ingestAll();
-
-  const newCount = summaries.filter((s) => s.isNew).length;
-  const changedCount = summaries.filter((s) => s.changed).length;
-  const indexableCount = summaries.filter((s) => s.indexable).length;
-  const errors = summaries.filter((s) => s.error);
+  const { summaries, topics, relationships, counts } = await ingestAll();
 
   console.log("\nScroll Infinity ingest");
   console.log("======================");
   for (const s of summaries) {
     const mark = s.error ? "x" : s.indexable ? "+" : "-";
     const parts = [
+      s.origin,
       s.isNew ? "new" : "existing",
       s.changed ? "changed" : null,
       s.indexable ? "indexable" : "not-indexable",
@@ -34,15 +30,19 @@ async function main(): Promise<void> {
 
   console.log("\nSummary");
   console.log(`  topics:        ${topics}`);
-  console.log(`  entities:      ${summaries.length}`);
-  console.log(`  new:           ${newCount}`);
-  console.log(`  changed:       ${changedCount}`);
-  console.log(`  indexable:     ${indexableCount}`);
+  console.log(`  processed:     ${counts.processed}`);
+  console.log(`  seeded:        ${counts.seeded}`);
+  console.log(`  refreshed:     ${counts.refreshed}`);
+  console.log(`  discovered:    ${counts.discovered}`);
+  console.log(`  new:           ${counts.new}`);
+  console.log(`  changed:       ${counts.changed}`);
+  console.log(`  indexable:     ${counts.indexable}`);
   console.log(`  relationships: ${relationships.pairs}`);
-  console.log(`  errors:        ${errors.length}`);
+  console.log(`  errors:        ${counts.errors}`);
 
-  // A run where every entity failed means the pipeline could not do its job.
-  if (summaries.length > 0 && errors.length === summaries.length) {
+  // A run where every processed entity failed means the pipeline could not do
+  // its job.
+  if (counts.processed > 0 && counts.errors === counts.processed) {
     throw new Error("All entities failed to ingest");
   }
 }

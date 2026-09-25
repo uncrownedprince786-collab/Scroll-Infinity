@@ -73,6 +73,26 @@ single-source facts are `supported`, not `verified`. The quality gate
 (`lib/quality.ts`) decides `indexable`/`page_state`; **public reads only return
 indexable entities**, so URL existence never implies a served page (spec §21).
 
+## Growth loop & scheduler (spec §36, §48)
+
+`ingestAll()` runs one **bounded** pass, so the schedule stays cheap as the
+database grows instead of re-crawling everything:
+
+1. **Seed** — ensure any not-yet-stored seed titles exist (established seeds
+   stay fresh via the refresh pass).
+2. **Refresh** — re-ingest the `INGEST_REFRESH_LIMIT` stalest entities
+   (ordered by `last_verified_at`); this is where change detection fires.
+3. **Discover** — propose up to `INGEST_DISCOVER_LIMIT` genuinely related new
+   entities from the entity-valued facts already stored (`lib/ingest/discovery`
+   + pure ranker `discovery-rank.ts`), ranked by graph centrality and run
+   through the same quality gate — discovery cannot mint thin pages (spec §21).
+
+The loop is triggered by **`GET|POST /api/ingest`**, authenticated with a
+Bearer token (`lib/auth.ts`, constant-time compare; fails closed when unset).
+**Vercel Cron** (`vercel.json`, daily 06:00 UTC) calls it — set `CRON_SECRET`
+= `INGEST_SECRET` so the scheduled request authenticates. The CLI
+(`npm run ingest`) runs the identical pass locally.
+
 ## SEO
 
 Per-page `generateMetadata` (unique title/description, canonical), server-
@@ -95,7 +115,10 @@ aware internal links, `sitemap.ts` (indexable URLs only, real lastmod),
 | `DATABASE_URL` | yes | Neon Postgres connection string |
 | `NEXT_PUBLIC_SITE_URL` | yes | Canonical base URL |
 | `SOURCE_USER_AGENT_CONTACT` | recommended | Contact in crawler User-Agent |
-| `INGEST_SECRET` | recommended | Protects the admin re-ingest route |
+| `INGEST_SECRET` | recommended | Bearer token for `/api/ingest` |
+| `CRON_SECRET` | recommended | Set = `INGEST_SECRET` so Vercel Cron authenticates |
+| `INGEST_REFRESH_LIMIT` | optional | Stalest entities refreshed per run (default 8) |
+| `INGEST_DISCOVER_LIMIT` | optional | New entities discovered per run (default 4) |
 
 See `.env.example`. R2 / GSC / Bing vars are listed for future milestones.
 
@@ -108,14 +131,20 @@ npm run lint        # eslint
 npm run test        # vitest (parsers, normalize, quality — fixture-based)
 npm run db:generate # drizzle: generate SQL from schema
 npm run db:migrate  # apply migrations to the database
-npm run ingest      # seed + ingest sources into the database
+npm run ingest      # run one ingest pass locally (seed + refresh + discover)
 npm run build       # production build
 ```
+
+The same pass runs in production via `GET|POST /api/ingest` (Bearer
+`INGEST_SECRET`), scheduled daily by Vercel Cron (`vercel.json`).
 
 ## Deferred to later milestones (intentionally, per spec §52)
 
 Cloudflare R2 raw-archive adapter (§14); Puppeteer browser-automation adapter
-and the discovery scheduler with locks/backoff (§16, §36); additional source
+(§16); job leases / heartbeats / backoff for the scheduler (§36 — the scheduled
+trigger and bounded discovery exist; distributed locking does not yet, and the
+Neon HTTP driver makes each query its own connection so a Postgres advisory lock
+would not hold — a lease table is the intended next step); additional source
 adapters (OpenAlex, GDELT, Data Commons, Common Crawl — §15); Google Search
 Console + Bing feedback loops (§26–27); internal admin/operations surface (§42);
 saved entities / followed topics (§28); charts/visualizations beyond tables
